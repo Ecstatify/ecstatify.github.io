@@ -1,0 +1,215 @@
+
+
+html_content = '''
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Cebu City Hazard Maps</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        body {
+            background-color: #0f172a; 
+            color: #94a3b8; 
+            font-family: 'Roboto', sans-serif; 
+        }
+
+        .content-container { 
+            background-color: #1e293b; 
+            border: 1px solid #0ea5e9; 
+            border-radius: 10px; 
+            box-shadow: 0 0 5px #0ea5e9; 
+            padding: 20px; 
+        }
+
+        .title {
+            color: #0ea5e9; 
+            font-weight: bold;
+            margin-bottom: 15px; 
+        }
+
+        .subheading {
+            color: #94a3b8; 
+            margin-bottom: 15px; 
+        }
+
+        .label {
+            color: #0ea5e9;
+            font-size: 0.9rem;
+        }
+
+        select {
+            background-color: #1e293b; 
+            color: #94a3b8; 
+            border: 1px solid #0ea5e9; 
+            border-radius: 5px;
+            padding: 10px;
+        }
+
+        /* Custom animation for dropdown */
+        .dropdown-enter {
+            opacity: 0;
+            transform: translateY(-10px);
+        }
+        .dropdown-enter-active {
+            opacity: 1;
+            transform: translateY(0);
+            transition: opacity 300ms ease, transform 300ms ease;
+        }
+        .dropdown-leave {
+            opacity: 1;
+            transform: translateY(0);
+        }
+        .dropdown-leave-active {
+            opacity: 0;
+            transform: translateY(-10px);
+            transition: opacity 300ms ease, transform 300ms ease;
+        }
+
+        /* Cursor style for zoomable images */
+        .zoomable {
+            cursor: grab;
+        }
+
+        /* Style for dragging the image */
+        .dragging {
+            cursor: grabbing;
+        }
+    </style>
+</head>
+<body class="p-8">
+    <div class="max-w-4xl mx-auto content-container"> 
+        <h1 class="text-2xl title">Cebu City Hazard Maps</h1>
+
+        <!-- Subheading -->
+        <p class="subheading text-sm text-gray-400 mb-4">Hazard maps retrieved from <a href="https://gisweb.phivolcs.dost.gov.ph/gisweb/earthquake-volcano-related-hazard-gis-information" class="text-cyan-400 underline" target="_blank">PHIVOLCS Hazard Maps</a></p>
+        <p class="subheading text-sm text-gray-400 mb-4">Click to enable dragging, double-click to reset.</p>
+
+        <div class="mb-4">
+            <label for="mapSelector" class="block label">Select a hazard map:</label>
+            <select id="mapSelector" class="block w-full p-2"> 
+                <option value="">Choose a map</option>
+                <option value="tsunami">Tsunami</option>
+                <option value="ground-rupture">Ground Rupture (Active Fault)</option>
+                <option value="ground-shaking">Ground Shaking</option>
+                <option value="liquefaction">Liquefaction</option>
+                <option value="earthquake">Earthquake Induced Landslides</option>
+            </select>
+        </div>
+
+        <div id="mapContainer" class="p-4 rounded-lg overflow-hidden relative">
+            <p id="placeholderText" class="text-center text-cyan-400">Please select a hazard map to view.</p>
+            <img id="mapImage" class="w-full h-auto hidden zoomable" src="" alt="Hazard Map">
+        </div>
+
+        <script>
+            const mapSelector = document.getElementById('mapSelector');
+            const mapImage = document.getElementById('mapImage');
+            const placeholderText = document.getElementById('placeholderText');
+            const mapContainer = document.getElementById('mapContainer');
+
+            // Variables for zoom, drag, and toggle
+            let scale = 1;
+            let isDraggingEnabled = false;
+            let isDragging = false;
+            let startX = 0, startY = 0;
+            let translateX = 0, translateY = 0;
+
+            // Toggle drag functionality on click
+            mapImage.addEventListener('click', () => {
+                isDraggingEnabled = !isDraggingEnabled;
+                mapImage.style.cursor = isDraggingEnabled ? 'grab' : 'auto';
+            });
+
+            // Zoom functionality
+            mapImage.addEventListener('wheel', (event) => {
+                event.preventDefault();
+
+                const scaleStep = 0.1;
+                const minScale = 1;
+                const maxScale = 3;
+
+                if (event.deltaY < 0 && scale < maxScale) {
+                    scale += scaleStep; // Zoom in
+                } else if (event.deltaY > 0 && scale > minScale) {
+                    scale -= scaleStep; // Zoom out
+                }
+
+                mapImage.style.transform = `scale(${scale}) translate(${translateX}px, ${translateY}px)`;
+            });
+
+            // Drag functionality
+            mapImage.addEventListener('mousedown', (event) => {
+                if (isDraggingEnabled) {
+                    isDragging = true;
+                    startX = event.clientX - translateX;
+                    startY = event.clientY - translateY;
+                    mapImage.classList.add('dragging');
+                }
+            });
+
+            document.addEventListener('mouseup', () => {
+                isDragging = false;
+                mapImage.classList.remove('dragging');
+            });
+
+            document.addEventListener('mousemove', (event) => {
+                if (isDragging) {
+                    translateX = event.clientX - startX;
+                    translateY = event.clientY - startY;
+
+                    mapImage.style.transform = `scale(${scale}) translate(${translateX}px, ${translateY}px)`;
+                }
+            });
+
+            // Double-click to reset zoom and position
+            mapImage.addEventListener('dblclick', () => {
+                scale = 1;
+                translateX = 0;
+                translateY = 0;
+                mapImage.style.transform = `scale(${scale}) translate(${translateX}px, ${translateY}px)`;
+            });
+
+            // Map selection change event
+            mapSelector.addEventListener('change', function() {
+                const selectedMap = this.value;
+                if (selectedMap) {
+                    // Reset zoom and translation
+                    scale = 1;
+                    translateX = 0;
+                    translateY = 0;
+                    mapImage.style.transform = `scale(${scale}) translate(${translateX}px, ${translateY}px)`;
+
+                    // Set the image source based on the selected map
+                    switch (selectedMap) {
+                        case "tsunami":
+                            mapImage.src = "tsunami.png"; 
+                            break;
+                        case "ground-rupture":
+                            mapImage.src = "Ground Rupture.png"; 
+                            break;
+                        case "ground-shaking":
+                            mapImage.src = "GroundShaking.png"; 
+                            break;
+                        case "earthquake":
+                            mapImage.src = "earthquakeinducedlandslide.png"; 
+                            break;
+                        case "liquefaction":
+                            mapImage.src = "liquefaction.png"; 
+                            break;							
+                    }
+
+                    mapImage.alt = `${selectedMap.charAt(0).toUpperCase() + selectedMap.slice(1)} Hazard Map`;
+                    mapImage.classList.remove('hidden');
+                    placeholderText.classList.add('hidden');
+                } else {
+                    mapImage.classList.add('hidden');
+                    placeholderText.classList.remove('hidden');
+                }
+            });
+        </script>
+    </div>
+</body>
+</html>
+
